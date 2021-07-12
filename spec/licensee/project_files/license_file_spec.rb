@@ -1,13 +1,13 @@
 # frozen_string_literal: true
 
 RSpec.describe Licensee::ProjectFiles::LicenseFile do
+  subject { described_class.new(content, filename) }
+
   let(:filename) { 'LICENSE.txt' }
   let(:gpl) { Licensee::License.find('gpl-3.0') }
   let(:mit) { Licensee::License.find('mit') }
   let(:content) { sub_copyright_info(mit) }
   let(:content_hash) { license_hashes['mit'] }
-
-  subject { described_class.new(content, filename) }
 
   it 'parses the attribution' do
     expect(subject.attribution).to eql('Copyright (c) 2018 Ben Balter')
@@ -47,7 +47,7 @@ RSpec.describe Licensee::ProjectFiles::LicenseFile do
   end
 
   it 'creates the wordset' do
-    expect(subject.wordset.count).to eql(91)
+    expect(subject.wordset.count).to be(93)
     expect(subject.wordset.first).to eql('permission')
   end
 
@@ -57,32 +57,39 @@ RSpec.describe Licensee::ProjectFiles::LicenseFile do
 
   context 'filename scoring' do
     {
-      'license'            => 1.00,
-      'LICENCE'            => 1.00,
-      'unLICENSE'          => 1.00,
-      'unlicence'          => 1.00,
-      'license.md'         => 0.95,
-      'LICENSE.md'         => 0.95,
-      'license.txt'        => 0.95,
-      'COPYING'            => 0.90,
-      'copyRIGHT'          => 0.90,
-      'COPYRIGHT.txt'      => 0.85,
-      'copying.txt'        => 0.85,
-      'LICENSE.php'        => 0.80,
-      'LICENCE.docs'       => 0.80,
-      'copying.image'      => 0.75,
-      'COPYRIGHT.go'       => 0.75,
-      'LICENSE-MIT'        => 0.70,
-      'LICENSE_1_0.txt'    => 0.70,
-      'COPYING-GPL'        => 0.65,
-      'COPYRIGHT-BSD'      => 0.65,
-      'MIT-LICENSE.txt'    => 0.60,
-      'mit-license-foo.md' => 0.60,
-      'OFL.md'             => 0.50,
-      'ofl.textile'        => 0.45,
-      'ofl'                => 0.40,
-      'not-the-ofl'        => 0.00,
-      'README.txt'         => 0.00
+      'license'             => 1.00,
+      'LICENCE'             => 1.00,
+      'unLICENSE'           => 1.00,
+      'unlicence'           => 1.00,
+      'license.md'          => 0.95,
+      'LICENSE.md'          => 0.95,
+      'license.txt'         => 0.95,
+      'COPYING'             => 0.90,
+      'copyRIGHT'           => 0.90,
+      'COPYRIGHT.txt'       => 0.85,
+      'copying.txt'         => 0.85,
+      'LICENSE.php'         => 0.80,
+      'LICENCE.docs'        => 0.80,
+      'license.xml'         => 0.80,
+      'copying.image'       => 0.75,
+      'COPYRIGHT.go'        => 0.75,
+      'LICENSE-MIT'         => 0.70,
+      'LICENSE_1_0.txt'     => 0.70,
+      'COPYING-GPL'         => 0.65,
+      'COPYRIGHT-BSD'       => 0.65,
+      'MIT-LICENSE.txt'     => 0.60,
+      'mit-license-foo.md'  => 0.60,
+      'OFL.md'              => 0.50,
+      'ofl.textile'         => 0.45,
+      'ofl'                 => 0.40,
+      'not-the-ofl'         => 0.00,
+      'README.txt'          => 0.00,
+      '.pip-license-ignore' => 0.00,
+      'license-checks.xml'  => 0.00,
+      'license_test.go'     => 0.00,
+      'licensee.gemspec'    => 0.00,
+      'LICENSE.spdx'        => 0.00
+
     }.each do |filename, expected|
       context "a file named #{filename}" do
         let(:score) { described_class.name_score(filename) }
@@ -119,11 +126,11 @@ RSpec.describe Licensee::ProjectFiles::LicenseFile do
       end
 
       it 'does not match .md2' do
-        expect(described_class::PREFERRED_EXT_REGEX).to_not match('.md2')
+        expect(described_class::PREFERRED_EXT_REGEX).not_to match('.md2')
       end
 
       it 'does not match .md/foo' do
-        expect(described_class::PREFERRED_EXT_REGEX).to_not match('.md/foo')
+        expect(described_class::PREFERRED_EXT_REGEX).not_to match('.md/foo')
       end
     end
 
@@ -133,7 +140,7 @@ RSpec.describe Licensee::ProjectFiles::LicenseFile do
       end
 
       it 'does not match .md/foo' do
-        expect(described_class::OTHER_EXT_REGEX).to_not match('.md/foo')
+        expect(described_class::OTHER_EXT_REGEX).not_to match('.md/foo')
       end
     end
 
@@ -158,11 +165,11 @@ RSpec.describe Licensee::ProjectFiles::LicenseFile do
     let(:regex) { Licensee::ProjectFiles::LicenseFile::CC_FALSE_POSITIVE_REGEX }
 
     it "knows MIT isn't a potential false positive" do
-      expect(subject.content).to_not match(regex)
-      expect(subject).to_not be_a_potential_false_positive
+      expect(subject.content).not_to match(regex)
+      expect(subject).not_to be_a_potential_false_positive
     end
 
-    context 'a CC false positive without creative commons in the title' do
+    context 'a CC false positive with creative commons in the title' do
       let(:content) { 'Creative Commons Attribution-NonCommercial 4.0' }
 
       it "knows it's a potential false positive" do
@@ -191,10 +198,10 @@ RSpec.describe Licensee::ProjectFiles::LicenseFile do
 
     context 'CC-BY-ND with leading instructions' do
       let(:content) do
-        <<-LICENSE
-Creative Commons Corporation ("Creative Commons") is not a law firm
-======================================================================
-Creative Commons Attribution-NonCommercial 4.0
+        <<~LICENSE
+          Creative Commons Corporation ("Creative Commons") is not a law firm
+          ======================================================================
+          Creative Commons Attribution-NonCommercial 4.0
         LICENSE
       end
 
@@ -220,7 +227,7 @@ Creative Commons Attribution-NonCommercial 4.0
         let(:content) { sub_copyright_info(mit) }
 
         it 'is not lgpl' do
-          expect(subject).to_not be_lgpl
+          expect(subject).not_to be_lgpl
         end
       end
     end
@@ -229,7 +236,7 @@ Creative Commons Attribution-NonCommercial 4.0
       let(:filename) { 'COPYING' }
 
       it 'is not lgpl' do
-        expect(subject).to_not be_lgpl
+        expect(subject).not_to be_lgpl
       end
     end
   end
@@ -245,7 +252,7 @@ Creative Commons Attribution-NonCommercial 4.0
       let(:content) { sub_copyright_info(mit) }
 
       it 'is not GPL' do
-        expect(subject).to_not be_gpl
+        expect(subject).not_to be_gpl
       end
     end
   end

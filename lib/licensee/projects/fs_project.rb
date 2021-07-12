@@ -20,9 +20,7 @@ module Licensee
         end
 
         @root = File.expand_path(args.delete(:search_root) || @dir)
-        unless valid_search_root?
-          raise 'Search root must be the project path directory or its ancestor'
-        end
+        raise 'Search root must be the project path directory or its ancestor' unless valid_search_root?
 
         super(**args)
       end
@@ -44,13 +42,18 @@ module Licensee
         end
       end
 
-      # Retrieve a file's content from disk
+      # Retrieve a file's content from disk, enforcing encoding
       #
       # file - the file hash, with the :name key as the file's relative path
       #
       # Returns the file contents as a string
       def load_file(file)
-        File.read dir_path.join(file[:dir], file[:name])
+        content = File.read dir_path.join(file[:dir], file[:name])
+        content.force_encoding(ProjectFiles::ProjectFile::ENCODING)
+
+        return content if content.valid_encoding?
+
+        content.encode(ProjectFiles::ProjectFile::ENCODING, **ProjectFiles::ProjectFile::ENCODING_OPTIONS)
       end
 
       # Returns true if @dir is @root or it's descendant

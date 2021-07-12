@@ -37,9 +37,8 @@ module Licensee
       def initialize(content, metadata = {})
         @content = content.dup
         @content.force_encoding(ENCODING)
-        unless @content.valid_encoding?
-          @content.encode!(ENCODING, ENCODING_OPTIONS)
-        end
+        @content.encode!(ENCODING, **ENCODING_OPTIONS) unless @content.valid_encoding?
+        @content.encode!(ENCODING, universal_newline: true)
 
         metadata = { name: metadata } if metadata.is_a? String
         @data = metadata || {}
@@ -92,7 +91,7 @@ module Licensee
         return false unless is_a?(LicenseFile)
         return false unless matcher.is_a?(Matchers::Copyright)
 
-        filename =~ /\Acopyright(?:#{LicenseFile::OTHER_EXT_REGEX})?\z/i
+        filename =~ /\Acopyright(?:#{LicenseFile::OTHER_EXT_REGEX})?\z/io
       end
 
       def content_hash

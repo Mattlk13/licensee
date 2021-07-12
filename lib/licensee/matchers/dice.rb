@@ -7,10 +7,10 @@ module Licensee
       # than the confidence threshold
       def match
         @match ||= if matches.empty?
-          nil
-        else
-          matches.first[0]
-        end
+                     nil
+                   else
+                     matches.first[0]
+                   end
       end
 
       # Licenses that may be a match for this file.
@@ -21,13 +21,11 @@ module Licensee
       # 2. The percentage change in file length may not exceed the inverse
       #    of the confidence threshold
       def potential_matches
-        @potential_matches ||= begin
-          super.select do |license|
-            if license.creative_commons? && file.potential_false_positive?
-              false
-            else
-              license.wordset && license.length_delta(file) <= license.max_delta
-            end
+        @potential_matches ||= super.select do |license|
+          if license.creative_commons? && file.potential_false_positive?
+            false
+          else
+            license.wordset
           end
         end
       end

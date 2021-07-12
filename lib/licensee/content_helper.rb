@@ -7,23 +7,24 @@ module Licensee
   module ContentHelper
     DIGEST = Digest::SHA1
     START_REGEX = /\A\s*/.freeze
-    END_OF_TERMS_REGEX = /^[\s#*_]*end of terms and conditions\s*$/i.freeze
+    END_OF_TERMS_REGEX = /^[\s#*_]*end of (the )?terms and conditions[\s#*_]*$/i.freeze
     REGEXES = {
-      hrs:                 /^\s*[=\-\*]{3,}\s*$/,
+      bom:                 /#{START_REGEX}\xEF\xBB\xBF/,
+      hrs:                 /^\s*[=\-*]{3,}\s*$/,
       all_rights_reserved: /#{START_REGEX}all rights reserved\.?$/i,
       whitespace:          /\s+/,
-      markdown_headings:   /#{START_REGEX}#+/,
+      markdown_headings:   /^\s*#+/,
       version:             /#{START_REGEX}version.*$/i,
       span_markup:         /[_*~]+(.*?)[_*~]+/,
       link_markup:         /\[(.+?)\]\(.+?\)/,
       block_markup:        /^\s*>/,
-      border_markup:       /^[\*-](.*?)[\*-]$/,
-      comment_markup:      %r{^\s*?[/\*]{1,2}},
+      border_markup:       /^[*-](.*?)[*-]$/,
+      comment_markup:      %r{^\s*?[/*]{1,2}},
       url:                 %r{#{START_REGEX}https?://[^ ]+\n},
-      bullet:              /\n\n\s*(?:[*-]|\(?[\da-z]{1,2}[)\.])\s+/i,
+      bullet:              /\n\n\s*(?:[*-]|\(?[\da-z]{1,2}[).])\s+/i,
       developed_by:        /#{START_REGEX}developed by:.*?\n\n/im,
-      quote_begin:         /[`'"‘“]/,
-      quote_end:           /[`'"’”]/,
+      cc_dedication:       /The\s+text\s+of\s+the\s+Creative\s+Commons.*?Public\s+Domain\s+Dedication./im,
+      cc_wiki:             /wiki.creativecommons.org/i,
       cc_legal_code:       /^\s*Creative Commons Legal Code\s*$/i,
       cc0_info:            /For more information, please see\s*\S+zero\S+/im,
       cc0_disclaimer:      /CREATIVE COMMONS CORPORATION.*?\n\n/im,
@@ -35,10 +36,7 @@ module Licensee
       https:      { from: /http:/, to: 'https:' },
       ampersands: { from: '&', to: 'and' },
       dashes:     { from: /(?<!^)([—–-]+)(?!$)/, to: '-' },
-      quotes:     {
-        from: /#{REGEXES[:quote_begin]}+([\w -]*?\w)#{REGEXES[:quote_end]}+/,
-        to:   '"\1"'
-      }
+      quote:      { from: /[`'"‘“’”]/, to: "'" }
     }.freeze
 
     # Legally equivalent words that schould be ignored for comparison
@@ -88,10 +86,10 @@ module Licensee
       'owner'           => 'holder'
     }.freeze
     STRIP_METHODS = %i[
+      bom
+      cc_optional
       cc0_optional
       unlicense_optional
-      hrs
-      markdown_headings
       borders
       title
       version
@@ -99,9 +97,6 @@ module Licensee
       copyright
       title
       block_markup
-      span_markup
-      link_markup
-      all_rights_reserved
       developed_by
       end_of_terms
       whitespace
@@ -110,21 +105,14 @@ module Licensee
 
     # A set of each word in the license, without duplicates
     def wordset
-      @wordset ||= content_normalized&.scan(/(?:\w(?:'s|(?<=s)')?)+/)&.to_set
+      @wordset ||= content_normalized&.scan(%r{(?:[\w/-](?:'s|(?<=s)')?)+})&.to_set
     end
 
-    # Number of characteres in the normalized content
+    # Number of characters in the normalized content
     def length
       return 0 unless content_normalized
 
       content_normalized.length
-    end
-
-    # Number of characters that could be added/removed to still be
-    # considered a potential match
-    def max_delta
-      @max_delta ||= fields_normalized.size * 10 +
-                     (length * Licensee.inverse_confidence_threshold).to_i
     end
 
     # Given another license or project file, calculates the difference in length
@@ -133,12 +121,14 @@ module Licensee
     end
 
     # Given another license or project file, calculates the similarity
-    # as a percentage of words in common
+    # as a percentage of words in common, minus a tiny penalty that
+    # increases with size difference between licenses so that false
+    # positives for long licnses are ruled out by this score alone.
     def similarity(other)
       overlap = (wordset_fieldless & other.wordset).size
       total = wordset_fieldless.size + other.wordset.size -
               fields_normalized_set.size
-      100.0 * (overlap * 2.0 / total)
+      (overlap * 200.0) / (total + variation_adjusted_length_delta(other) / 4)
     end
 
     # SHA1 of the normalized content
@@ -153,7 +143,7 @@ module Licensee
     def content_without_title_and_version
       @content_without_title_and_version ||= begin
         @_content = nil
-        ops = %i[html hrs comments markdown_headings title version]
+        ops = %i[html hrs comments markdown_headings link_markup title version]
         ops.each { |op| strip(op) }
         _content
       end
@@ -163,7 +153,7 @@ module Licensee
       @content_normalized ||= begin
         @_content = content_without_title_and_version.downcase
 
-        (NORMALIZATIONS.keys + %i[spelling bullets]).each { |op| normalize(op) }
+        (NORMALIZATIONS.keys + %i[spelling span_markup bullets]).each { |op| normalize(op) }
         STRIP_METHODS.each { |op| strip(op) }
 
         _content
@@ -191,12 +181,10 @@ module Licensee
       text.gsub!(/([^\n])\n([^\n])/, '\1 \2')
 
       text = text.split("\n").collect do |line|
-        if line =~ REGEXES[:hrs]
+        if line =~ REGEXES[:hrs] || line.length <= line_width
           line
-        elsif line.length > line_width
-          line.gsub(/(.{1,#{line_width}})(\s+|$)/, "\\1\n").strip
         else
-          line
+          line.gsub(/(.{1,#{line_width}})(\s+|$)/, "\\1\n").strip
         end
       end * "\n"
 
@@ -238,9 +226,7 @@ module Licensee
         meth = "strip_#{regex_or_sym}"
         return send(meth) if respond_to?(meth, true)
 
-        unless REGEXES[regex_or_sym]
-          raise ArgumentError, "#{regex_or_sym} is an invalid regex reference"
-        end
+        raise ArgumentError, "#{regex_or_sym} is an invalid regex reference" unless REGEXES[regex_or_sym]
 
         regex_or_sym = REGEXES[regex_or_sym]
       end
@@ -249,9 +235,7 @@ module Licensee
     end
 
     def strip_title
-      while _content =~ ContentHelper.title_regex
-        strip(ContentHelper.title_regex)
-      end
+      strip(ContentHelper.title_regex) while _content =~ ContentHelper.title_regex
     end
 
     def strip_borders
@@ -267,7 +251,7 @@ module Licensee
     end
 
     def strip_copyright
-      regex = Matchers::Copyright::REGEX
+      regex = Regexp.union(Matchers::Copyright::REGEX, REGEXES[:all_rights_reserved])
       strip(regex) while _content =~ regex
     end
 
@@ -277,6 +261,13 @@ module Licensee
       strip(REGEXES[:cc_legal_code])
       strip(REGEXES[:cc0_info])
       strip(REGEXES[:cc0_disclaimer])
+    end
+
+    def strip_cc_optional
+      return unless _content.include? 'creative commons'
+
+      strip(REGEXES[:cc_dedication])
+      strip(REGEXES[:cc_wiki])
     end
 
     def strip_unlicense_optional
@@ -290,7 +281,7 @@ module Licensee
       @_content = body
     end
 
-    def strip_span_markup
+    def normalize_span_markup
       normalize(REGEXES[:span_markup], '\1')
     end
 
@@ -300,7 +291,7 @@ module Licensee
 
     def strip_html
       return unless respond_to?(:filename) && filename
-      return unless File.extname(filename) =~ /\.html?/i
+      return unless /\.html?/i.match?(File.extname(filename))
 
       require 'reverse_markdown'
       @_content = ReverseMarkdown.convert(_content, unknown_tags: :bypass)
@@ -324,7 +315,7 @@ module Licensee
     end
 
     def normalize_bullets
-      normalize(REGEXES[:bullet], "\n\n* ")
+      normalize(REGEXES[:bullet], "\n\n- ")
       normalize(/\)\s+\(/, ')(')
     end
 
@@ -340,6 +331,18 @@ module Licensee
 
     def fields_normalized_set
       @fields_normalized_set ||= fields_normalized.to_set
+    end
+
+    def variation_adjusted_length_delta(other)
+      delta = length_delta(other)
+
+      # The content helper mixin is used in different objects
+      # Licenses have a more advanced SPDX alt. segement-based delta.
+      # Use that if it's present, otherwise, just return the simple delta.
+      return delta unless respond_to?(:spdx_alt_segments, true)
+
+      adjusted_delta = delta - [fields_normalized.size, spdx_alt_segments].max * 4
+      adjusted_delta.positive? ? adjusted_delta : 0
     end
   end
 end

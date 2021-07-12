@@ -41,17 +41,13 @@ class LicenseeCLI < Thor
 
   def license_to_diff
     return options[:license_to_diff] if options[:license_to_diff]
-    return project.license_file if remote? || STDIN.tty? && project.license_file
+    return project.license_file if remote? || $stdin.tty? && project.license_file
 
-    @license_to_diff ||= begin
-      Licensee::ProjectFiles::LicenseFile.new(STDIN.read, 'LICENSE')
-    end
+    @license_to_diff ||= Licensee::ProjectFiles::LicenseFile.new($stdin.read, 'LICENSE')
   end
 
   def expected_license
-    if options[:license]
-      @expected_license ||= Licensee::License.find options[:license]
-    end
+    @expected_license ||= Licensee::License.find options[:license] if options[:license]
     return @expected_license if @expected_license
 
     if options[:license]

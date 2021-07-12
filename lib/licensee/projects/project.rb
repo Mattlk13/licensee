@@ -25,10 +25,10 @@ module Licensee
         return @license if defined? @license
 
         @license = if licenses_without_copyright.count == 1 || lgpl?
-          licenses_without_copyright.first
-        elsif licenses_without_copyright.count > 1
-          Licensee::License.find('other')
-        end
+                     licenses_without_copyright.first
+                   elsif licenses_without_copyright.count > 1
+                     Licensee::License.find('other')
+                   end
       end
 
       # Returns an array of detected Licenses
@@ -43,9 +43,7 @@ module Licensee
 
       # Returns an array of matches LicenseFiles
       def matched_files
-        @matched_files ||= begin
-          project_files.select(&:license)
-        end
+        @matched_files ||= project_files.select(&:license)
       end
 
       # Returns the LicenseFile used to determine the License
@@ -54,18 +52,17 @@ module Licensee
       end
 
       def license_files
-        @license_files ||= begin
-          return [] if files.empty? || files.nil?
-
-          files = find_files do |n|
-            Licensee::ProjectFiles::LicenseFile.name_score(n)
-          end
-          files = files.map do |file|
-            Licensee::ProjectFiles::LicenseFile.new(load_file(file), file)
-          end
-
-          prioritize_lgpl(files)
-        end
+        @license_files ||= if files.empty? || files.nil?
+                             []
+                           else
+                             files = find_files do |n|
+                               Licensee::ProjectFiles::LicenseFile.name_score(n)
+                             end
+                             files = files.map do |file|
+                               Licensee::ProjectFiles::LicenseFile.new(load_file(file), file)
+                             end
+                             prioritize_lgpl(files)
+                           end
       end
 
       def readme_file
@@ -154,9 +151,7 @@ module Licensee
       # Returns an array of matches licenses, excluding the COPYRIGHT file
       # which can often be ignored for purposes of determing dual licensing
       def licenses_without_copyright
-        @licenses_without_copyright ||= begin
-          matched_files.reject(&:copyright?).map(&:license).uniq
-        end
+        @licenses_without_copyright ||= matched_files.reject(&:copyright?).map(&:license).uniq
       end
 
       def files

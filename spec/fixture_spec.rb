@@ -5,6 +5,8 @@ RSpec.describe 'fixture test' do
     let(:options) { { detect_packages: true, detect_readme: true } }
 
     context "the #{fixture} fixture" do
+      subject { Licensee.project(path, **options) }
+
       let(:path) { fixture_path(fixture) }
       let(:other) { Licensee::License.find('other') }
       let(:none) { Licensee::License.find('none') }
@@ -12,10 +14,8 @@ RSpec.describe 'fixture test' do
       let(:license_file) { subject.license_file }
       let(:matcher) { license_file&.matcher }
 
-      subject { Licensee.project(path, options) }
-
       it 'has an expected license in fixtures-licenses.yml' do
-        msg = 'Expected an entry in `'.dup
+        msg = +'Expected an entry in `'
         msg << fixture_path('fixtures-licenses.yml')
         msg << "` for the `#{fixture}` fixture. Please run "
         msg << 'script/dump-fixture-licenses and confirm the output.'
@@ -24,10 +24,10 @@ RSpec.describe 'fixture test' do
 
       it 'detects the license' do
         expected = if expectations['key']
-          Licensee::License.find(expectations['key'])
-        else
-          none
-        end
+                     Licensee::License.find(expectations['key'])
+                   else
+                     none
+                   end
 
         expect(subject.license).to eql(expected)
       end

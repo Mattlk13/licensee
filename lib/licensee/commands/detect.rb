@@ -23,16 +23,14 @@ class LicenseeCLI < Thor
 
     rows = []
     rows << if project.license
-      ['License:', project.license.spdx_id]
-    elsif !project.licenses.empty?
-      ['Licenses:', project.licenses.map(&:spdx_id)]
-    else
-      ['License:', set_color('None', :red)]
-    end
+              ['License:', project.license.spdx_id]
+            elsif !project.licenses.empty?
+              ['Licenses:', project.licenses.map(&:spdx_id)]
+            else
+              ['License:', set_color('None', :red)]
+            end
 
-    unless project.matched_files.empty?
-      rows << ['Matched files:', project.matched_files.map(&:filename).join(', ')]
-    end
+    rows << ['Matched files:', project.matched_files.map(&:filename).join(', ')] unless project.matched_files.empty?
 
     print_table rows
 
@@ -88,7 +86,7 @@ class LicenseeCLI < Thor
     when :confidence
       Licensee::ContentHelper.format_percent(value)
     when :method
-      value.to_s.tr('_', ' ').capitalize + ':'
+      "#{value.to_s.tr('_', ' ').capitalize}:"
     else
       value
     end

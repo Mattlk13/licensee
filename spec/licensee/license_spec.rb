@@ -1,8 +1,8 @@
 # frozen_string_literal: true
 
 RSpec.describe Licensee::License do
-  let(:license_count) { 39 }
-  let(:hidden_license_count) { 26 }
+  let(:license_count) { 43 }
+  let(:hidden_license_count) { 30 }
   let(:featured_license_count) { 3 }
   let(:pseudo_license_count) { 2 }
   let(:non_featured_license_count) do
@@ -35,7 +35,7 @@ RSpec.describe Licensee::License do
       let(:arguments) { {} }
 
       it 'returns the licenses' do
-        expect(licenses).to all be_a(Licensee::License)
+        expect(licenses).to all be_a(described_class)
         expect(licenses.count).to eql(license_count - hidden_license_count)
       end
 
@@ -45,8 +45,8 @@ RSpec.describe Licensee::License do
 
       it 'includes featured licenses' do
         expect(licenses).to include(mit)
-        expect(licenses).to_not include(cc_by)
-        expect(licenses).to_not include(other)
+        expect(licenses).not_to include(cc_by)
+        expect(licenses).not_to include(other)
       end
     end
 
@@ -65,8 +65,8 @@ RSpec.describe Licensee::License do
 
       it 'includes only featured licenses' do
         expect(licenses).to include(mit)
-        expect(licenses).to_not include(cc_by)
-        expect(licenses).to_not include(other)
+        expect(licenses).not_to include(cc_by)
+        expect(licenses).not_to include(other)
         expect(licenses.count).to eql(featured_license_count)
       end
     end
@@ -76,8 +76,8 @@ RSpec.describe Licensee::License do
 
       it 'includes only non-featured licenses' do
         expect(licenses).to include(unlicense)
-        expect(licenses).to_not include(mit)
-        expect(licenses).to_not include(other)
+        expect(licenses).not_to include(mit)
+        expect(licenses).not_to include(other)
         expect(licenses.count).to eql(non_featured_license_count)
       end
 
@@ -87,20 +87,20 @@ RSpec.describe Licensee::License do
         it 'includes only non-featured licenses' do
           expect(licenses).to include(unlicense)
           expect(licenses).to include(cc_by)
-          expect(licenses).to_not include(mit)
+          expect(licenses).not_to include(mit)
           expect(licenses.count).to eql(license_count - featured_license_count)
         end
       end
     end
 
     context 'pseudo licenses' do
-      let(:other) { Licensee::License.find('other') }
+      let(:other) { described_class.find('other') }
 
       context 'by default' do
         let(:arguments) { {} }
 
         it "doesn't include pseudo licenses" do
-          expect(licenses).to_not include(other)
+          expect(licenses).not_to include(other)
         end
       end
 
@@ -124,7 +124,7 @@ RSpec.describe Licensee::License do
         let(:arguments) { { hidden: true, pseudo: false } }
 
         it "doesn'tincludes psudo licenses" do
-          expect(licenses).to_not include(other)
+          expect(licenses).not_to include(other)
         end
       end
 
@@ -141,7 +141,7 @@ RSpec.describe Licensee::License do
           let(:arguments) { { hidden: true, psuedo: false } }
 
           it "doesn'tincludes psudo licenses" do
-            expect(licenses).to_not include(other)
+            expect(licenses).not_to include(other)
           end
         end
       end
@@ -197,9 +197,9 @@ RSpec.describe Licensee::License do
     expect(no_license.spdx_id).to eql('NONE')
   end
 
-  context '#other?' do
+  describe '#other?' do
     it 'knows MIT is not other' do
-      expect(gpl).to_not be_other
+      expect(gpl).not_to be_other
     end
 
     it 'knows the other license is other?' do
@@ -216,7 +216,7 @@ RSpec.describe Licensee::License do
     end
 
     it 'includes defaults' do
-      expect(other.meta['hidden']).to eql(true)
+      expect(other.meta['hidden']).to be(true)
     end
 
     it 'returns the name' do
@@ -238,27 +238,27 @@ RSpec.describe Licensee::License do
     end
 
     it 'knows if a license is hidden' do
-      expect(mit).to_not be_hidden
+      expect(mit).not_to be_hidden
       expect(cc_by).to be_hidden
     end
 
     it 'knows if a license is featured' do
       expect(mit).to be_featured
-      expect(unlicense).to_not be_featured
+      expect(unlicense).not_to be_featured
     end
 
     it 'knows if a license is GPL' do
-      expect(mit).to_not be_gpl
+      expect(mit).not_to be_gpl
       expect(gpl).to be_gpl
     end
 
     it 'knows a license is lgpl' do
-      expect(mit).to_not be_gpl
+      expect(mit).not_to be_gpl
       expect(lgpl).to be_lgpl
     end
 
     it 'knows if a license is CC' do
-      expect(gpl).to_not be_creative_commons
+      expect(gpl).not_to be_creative_commons
       expect(cc_by).to be_creative_commons
     end
   end
@@ -300,12 +300,12 @@ RSpec.describe Licensee::License do
   end
 
   it 'knows equality' do
-    expect(mit).to eql(mit)
-    expect(gpl).to_not eql(mit)
+    expect(described_class.find('mit')).to eql(mit)
+    expect(gpl).not_to eql(mit)
   end
 
   it 'knows if a license is a pseudo license' do
-    expect(mit).to_not be_pseudo_license
+    expect(mit).not_to be_pseudo_license
     expect(other).to be_pseudo_license
   end
 
@@ -319,24 +319,24 @@ RSpec.describe Licensee::License do
     expect(mit.rules).to be_a(Licensee::LicenseRules)
     expect(mit.rules).to have_key('permissions')
     expect(mit.rules['permissions'].first).to be_a(Licensee::Rule)
-    expect(mit.rules.flatten.count).to eql(7)
+    expect(mit.rules.flatten.count).to be(7)
   end
 
   it 'returns rules by tag and group' do
     expect(cc_by.rules).to have_key('limitations')
     rule = cc_by.rules['limitations'].find { |r| r.tag == 'patent-use' }
-    expect(rule).to_not be_nil
+    expect(rule).not_to be_nil
     expect(rule.description).to include('does NOT grant')
 
     expect(gpl.rules).to have_key('permissions')
     rule = gpl.rules['permissions'].find { |r| r.tag == 'patent-use' }
-    expect(rule).to_not be_nil
+    expect(rule).not_to be_nil
     expect(rule.description).to include('an express grant of patent rights')
   end
 
   context 'fields' do
     it 'returns the license fields' do
-      expect(mit.fields.count).to eql(2)
+      expect(mit.fields.count).to be(2)
       expect(mit.fields.first.key).to eql('year')
       expect(mit.fields.last.key).to eql('fullname')
       expect(gpl.fields).to be_empty
@@ -345,7 +345,7 @@ RSpec.describe Licensee::License do
     context 'muscache' do
       let(:license) do
         license = described_class.new 'MIT'
-        content = license.content + '[foo] [bar]'
+        content = "#{license.content}[foo] [bar]"
         license.instance_variable_set(:@content, content)
         license
       end
@@ -353,21 +353,22 @@ RSpec.describe Licensee::License do
       it 'returns mustache content' do
         expect(license.content_for_mustache).to match(/{{{year}}}/)
         expect(license.content_for_mustache).to match(/{{{fullname}}}/)
-        expect(license.content_for_mustache).to_not match(/\[year\]/)
-        expect(license.content_for_mustache).to_not match(/\[fullname\]/)
+        expect(license.content_for_mustache).not_to match(/\[year\]/)
+        expect(license.content_for_mustache).not_to match(/\[fullname\]/)
       end
 
       it "doesn't mangle other fields" do
         expect(license.content_for_mustache).to match(/\[foo\]/)
-        expect(license.content_for_mustache).to_not match(/{{{foo}}}/)
+        expect(license.content_for_mustache).not_to match(/{{{foo}}}/)
       end
     end
   end
 
   context 'License.title_regex' do
-    Licensee::License.all(hidden: true, pseudo: false).each do |license|
+    namey = %i[title nickname key]
+    described_class.all(hidden: true, pseudo: false).each do |license|
       context "the #{license.title} license" do
-        %i[title nickname key].each do |variation|
+        namey.each do |variation|
           next if license.send(variation).nil?
 
           context "the license #{variation}" do
@@ -382,7 +383,7 @@ RSpec.describe Licensee::License do
               expect(described_class.find_by_title(text)).to eql(license)
             end
 
-            if license.title =~ /\bGNU\b/
+            if /\bGNU\b/.match?(license.title)
               context "without 'GNU'" do
                 let(:text) { license_variation.sub(/GNU /i, '') }
 
@@ -440,7 +441,7 @@ RSpec.describe Licensee::License do
 
     context 'a license with an alt title' do
       let(:text) { 'The Clear BSD license' }
-      let(:license) { Licensee::License.find('bsd-3-clause-clear') }
+      let(:license) { described_class.find('bsd-3-clause-clear') }
 
       it 'matches' do
         expect(text).to match(license.title_regex)
@@ -475,26 +476,29 @@ RSpec.describe Licensee::License do
   end
 
   context 'source regex' do
-    Licensee::License.all(hidden: true, pseudo: false).each do |license|
+    schemes = %w[http https]
+    prefixes = ['www.', '']
+    suffixes = ['.html', '.htm', '.txt', '']
+    described_class.all(hidden: true, pseudo: false).each do |license|
       context "the #{license.title} license" do
         let(:source) { URI.parse(license.source) }
 
-        %w[http https].each do |scheme|
+        schemes.each do |scheme|
           context "with a #{scheme}:// scheme" do
             before { source.scheme = scheme }
 
-            ['www.', ''].each do |prefix|
+            prefixes.each do |prefix|
               context "with '#{prefix}' before the host" do
                 before do
-                  source.host = "#{prefix}#{source.host.sub(/\Awww\./, '')}"
+                  source.host = "#{prefix}#{source.host.delete_prefix('www.')}"
                 end
 
-                ['.html', '.htm', '.txt', ''].each do |suffix|
+                suffixes.each do |suffix|
                   context "with '#{suffix}' after the path" do
                     before do
                       next if license.key == 'wtfpl'
 
-                      regex = /#{Licensee::License::SOURCE_SUFFIX}\z/
+                      regex = /#{Licensee::License::SOURCE_SUFFIX}\z/o
                       source.path = source.path.sub(regex, '')
                       source.path = "#{source.path}#{suffix}"
                     end
