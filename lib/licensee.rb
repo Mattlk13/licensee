@@ -24,8 +24,6 @@ module Licensee
   DOMAIN = 'http://choosealicense.com'
 
   class << self
-    attr_writer :confidence_threshold
-
     # Returns an array of Licensee::License instances
     def licenses(options = {})
       Licensee::License.all(options)
@@ -37,24 +35,29 @@ module Licensee
     end
 
     def project(path, **args)
-      if path =~ %r{\Ahttps://github.com}
-        Licensee::Projects::GitHubProject.new(path, args)
+      if %r{\Ahttps://github.com}.match?(path)
+        Licensee::Projects::GitHubProject.new(path, **args)
       else
-        Licensee::Projects::GitProject.new(path, args)
+        Licensee::Projects::GitProject.new(path, **args)
       end
     rescue Licensee::Projects::GitProject::InvalidRepository
-      Licensee::Projects::FSProject.new(path, args)
+      Licensee::Projects::FSProject.new(path, **args)
     end
 
     def confidence_threshold
       @confidence_threshold ||= CONFIDENCE_THRESHOLD
     end
 
+    def confidence_threshold=(value)
+      @confidence_threshold = value
+      @inverse_confidence_threshold = nil
+    end
+
     # Inverse of the confidence threshold, represented as a float
     # By default this will be 0.02
     def inverse_confidence_threshold
       @inverse_confidence_threshold ||=
-        (1 - Licensee.confidence_threshold / 100.0).round(2)
+        (1 - (Licensee.confidence_threshold / 100.0)).round(2)
     end
   end
 end

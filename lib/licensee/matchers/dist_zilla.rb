@@ -5,7 +5,7 @@ module Licensee
     class DistZilla < Licensee::Matchers::Package
       attr_reader :file
 
-      LICENSE_REGEX = /^license\s*=\s*([a-z\-0-9\._]+)/i.freeze
+      LICENSE_REGEX = /^license\s*=\s*([a-z\-0-9._]+)/i.freeze
 
       private
 
@@ -19,6 +19,7 @@ module Licensee
                  .sub('_', '.')
                  .sub('Mozilla', 'MPL')
                  .sub(/^GPL-(\d)$/, 'GPL-\1.0')
+                 .sub(/^AGPL-(\d)$/, 'AGPL-\1.0')
       end
     end
   end

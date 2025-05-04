@@ -27,11 +27,11 @@ module Licensee
       end
 
       def repository
-        @repository ||= begin
-          return @raw_repo if @raw_repo.is_a? Rugged::Repository
-
-          Rugged::Repository.new(@raw_repo)
-        end
+        @repository ||= if @raw_repo.is_a? Rugged::Repository
+                          @raw_repo
+                        else
+                          Rugged::Repository.new(@raw_repo)
+                        end
       rescue Rugged::OSError, Rugged::RepositoryError
         raise InvalidRepository
       end
@@ -44,10 +44,10 @@ module Licensee
 
       def commit
         @commit ||= if revision
-          repository.lookup(revision)
-        else
-          repository.last_commit
-        end
+                      repository.lookup(revision)
+                    else
+                      repository.last_commit
+                    end
       end
 
       MAX_LICENSE_SIZE = 64 * 1024

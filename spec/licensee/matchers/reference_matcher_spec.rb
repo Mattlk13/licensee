@@ -1,11 +1,11 @@
 # frozen_string_literal: true
 
 RSpec.describe Licensee::Matchers::Reference do
+  subject { described_class.new(file) }
+
   let(:content) { 'Copyright 2015 Ben Balter' }
   let(:file) { Licensee::ProjectFiles::LicenseFile.new(content, 'LICENSE.txt') }
   let(:license) { Licensee::License.find('gpl-3.0') }
-
-  subject { described_class.new(file) }
 
   %i[title key nickname].each do |variation|
     context "with a license #{variation}" do
@@ -48,6 +48,23 @@ RSpec.describe Licensee::Matchers::Reference do
 
     it 'matches' do
       expect(subject.match).to eql(license)
+    end
+  end
+
+  context 'x.0 license sans .0' do
+    let(:content) { 'Apache V2' }
+    let(:license) { Licensee::License.find('apache-2.0') }
+
+    it 'matches' do
+      expect(subject.match).to eql(license)
+    end
+  end
+
+  context 'x.1 license sans .1' do
+    let(:content) { 'EUPL-1' }
+
+    it 'matches' do
+      expect(subject.match).to be_nil
     end
   end
 end

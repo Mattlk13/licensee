@@ -2,7 +2,7 @@
 
 *A Ruby Gem to detect under what license a project is distributed.*
 
-[![Build Status](https://travis-ci.org/licensee/licensee.svg?branch=master)](https://travis-ci.org/licensee/licensee) [![Gem Version](https://badge.fury.io/rb/licensee.svg)](http://badge.fury.io/rb/licensee) [![Maintainability](https://api.codeclimate.com/v1/badges/5dca6a1ff7015c6d8cab/maintainability)](https://codeclimate.com/github/benbalter/licensee/maintainability) [![Test Coverage](https://api.codeclimate.com/v1/badges/5dca6a1ff7015c6d8cab/test_coverage)](https://codeclimate.com/github/benbalter/licensee/test_coverage) [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg?style=flat-square)](http://makeapullrequest.com) 
+[![](https://github.com/licensee/licensee/workflows/CI/badge.svg)](https://github.com/licensee/licensee/actions?query=workflow%3ACI) [![Gem Version](https://badge.fury.io/rb/licensee.svg)](https://badge.fury.io/rb/licensee) [![Maintainability](https://api.codeclimate.com/v1/badges/5dca6a1ff7015c6d8cab/maintainability)](https://codeclimate.com/github/benbalter/licensee/maintainability) [![Test Coverage](https://api.codeclimate.com/v1/badges/5dca6a1ff7015c6d8cab/test_coverage)](https://codeclimate.com/github/benbalter/licensee/test_coverage) [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg?style=flat-square)](http://makeapullrequest.com)
 
 
 ## The problem
@@ -32,18 +32,22 @@ To use licensee programmatically in your own Ruby project, add `gem 'licensee'` 
 To run licensee directly from source:
 
     gem install bundler
-    bundle install --path vendor/bundle
+    bundle install
     bundle exec bin/licensee
 
 On Windows, the last line needs to include the Ruby interpreter:
 
     bundle exec ruby bin\licensee
 
-In a Docker Debian Stretch container, minimum dependencies are:
+## Docker
 
-```
-apt-get install -y ruby bundler cmake pkg-config git libssl-dev
-```
+Licensee also comes with a Dockerfile if you prefer to run Licensee within a Docker container:
+
+1. `git clone https://github.com/licensee/licensee && cd licensee`
+2. `docker build . --tag licensee`
+3. `docker run licensee [COMMAND]` (see [command line usage](./command-line-usage.md))
+
+*Example (detecting the license of `rails/rails` on GitHub):* `docker run licensee detect rails/rails --remote`
 
 ## Documentation
 

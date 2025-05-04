@@ -4,6 +4,7 @@ require 'uri'
 
 module Licensee
   class InvalidLicense < ArgumentError; end
+
   class License
     @all = {}
     @keys_licenses = {}
@@ -26,9 +27,11 @@ module Licensee
           output.reject!(&:hidden?) unless options[:hidden]
           output.reject!(&:pseudo_license?) unless options[:pseudo]
           output.sort_by!(&:key)
-          return output if options[:featured].nil?
-
-          output.select { |l| l.featured? == options[:featured] }
+          if options[:featured].nil?
+            output
+          else
+            output.select { |l| l.featured? == options[:featured] }
+          end
         end
       end
 
@@ -53,12 +56,15 @@ module Licensee
       end
 
       def license_dir
-        dir = ::File.dirname(__FILE__)
-        ::File.expand_path '../../vendor/choosealicense.com/_licenses', dir
+        ::File.expand_path '../../vendor/choosealicense.com/_licenses', __dir__
       end
 
       def license_files
         @license_files ||= Dir.glob("#{license_dir}/*.txt")
+      end
+
+      def spdx_dir
+        ::File.expand_path '../../vendor/license-list-XML/src', __dir__
       end
 
       private
@@ -68,7 +74,7 @@ module Licensee
       end
 
       def keys_licenses(options = {})
-        @keys_licenses[options] ||= all(options).map { |l| [l.key, l] }.to_h
+        @keys_licenses[options] ||= all(options).to_h { |l| [l.key, l] }
       end
     end
 
@@ -82,7 +88,7 @@ module Licensee
     # `other` - The project had a license, but we were not able to detect it
     # `no-license` - The project is not licensed (e.g., all rights reserved)
     #
-    # Note: A lack of detected license will be a nil license
+    # NOTE: A lack of detected license will be a nil license
     PSEUDO_LICENSES = %w[other no-license].freeze
 
     # Default options to use when retrieving licenses via #all
@@ -93,7 +99,7 @@ module Licensee
     }.freeze
 
     SOURCE_PREFIX = %r{https?://(?:www\.)?}i.freeze
-    SOURCE_SUFFIX = %r{(?:\.html?|\.txt|\/)(?:\?[^\s]*)?}i.freeze
+    SOURCE_SUFFIX = %r{(?:\.html?|\.txt|/)(?:\?[^\s]*)?}i.freeze
 
     HASH_METHODS = %i[
       key spdx_id meta url rules fields other? gpl? lgpl? cc?
@@ -139,12 +145,21 @@ module Licensee
       return @title_regex if defined? @title_regex
 
       string = name.downcase.sub('*', 'u')
+      simple_title_regex = Regexp.new string, 'i'
       string.sub!(/\Athe /i, '')
       string.sub!(/,? version /, ' ')
       string.sub!(/v(\d+\.\d+)/, '\1')
       string = Regexp.escape(string)
       string = string.sub(/\\ licen[sc]e/i, '(?:\ licen[sc]e)?')
-      string = string.sub(/\\ (\d+\\.\d+)/, ',?\s+(?:version\ |v(?:\. )?)?\1')
+      version_match = string.match(/\d+\\.(\d+)/)
+      if version_match
+        vsub = if version_match[1] == '0'
+                 ',?\s+(?:version\ |v(?:\. )?)?\1(\2)?'
+               else
+                 ',?\s+(?:version\ |v(?:\. )?)?\1\2'
+               end
+        string = string.sub(/\\ (\d+)(\\.\d+)/, vsub)
+      end
       string = string.sub(/\bgnu\\ /, '(?:GNU )?')
       title_regex = Regexp.new string, 'i'
 
@@ -153,10 +168,8 @@ module Licensee
       string << '(?:\ licen[sc]e)?'
       key_regex = Regexp.new string, 'i'
 
-      parts = [title_regex, key_regex]
-      if meta.nickname
-        parts.push Regexp.new meta.nickname.sub(/\bGNU /i, '(?:GNU )?')
-      end
+      parts = [simple_title_regex, title_regex, key_regex]
+      parts.push Regexp.new meta.nickname.sub(/\bGNU /i, '(?:GNU )?') if meta.nickname
 
       @title_regex = Regexp.union parts
     end
@@ -173,8 +186,8 @@ module Licensee
       return @source_regex if defined? @source_regex
       return unless meta.source
 
-      source = meta.source.dup.sub(/\A#{SOURCE_PREFIX}/, '')
-      source = source.sub(/#{SOURCE_SUFFIX}\z/, '')
+      source = meta.source.dup.sub(/\A#{SOURCE_PREFIX}/o, '')
+      source = source.sub(/#{SOURCE_SUFFIX}\z/o, '')
 
       escaped_source = Regexp.escape(source)
       @source_regex = /#{SOURCE_PREFIX}#{escaped_source}(?:#{SOURCE_SUFFIX})?/i
@@ -211,7 +224,7 @@ module Licensee
     end
 
     def ==(other)
-      !other.nil? && key == other.key
+      other.is_a?(self.class) && key == other.key
     end
 
     def pseudo_license?
@@ -234,9 +247,7 @@ module Licensee
     # Returns a string with `[fields]` replaced by `{{{fields}}}`
     # Does not mangle non-supported fields in the form of `[field]`
     def content_for_mustache
-      @content_for_mustache ||= begin
-        content.gsub(LicenseField::FIELD_REGEX, '{{{\1}}}')
-      end
+      @content_for_mustache ||= content.gsub(LicenseField::FIELD_REGEX, '{{{\1}}}')
     end
 
     private
@@ -244,9 +255,7 @@ module Licensee
     # Raw content of license file, including YAML front matter
     def raw_content
       return if pseudo_license?
-      unless File.exist?(path)
-        raise Licensee::InvalidLicense, "'#{key}' is not a valid license key"
-      end
+      raise Licensee::InvalidLicense, "'#{key}' is not a valid license key" unless File.exist?(path)
 
       @raw_content ||= File.read(path, encoding: 'utf-8')
     end
@@ -259,6 +268,18 @@ module Licensee
 
     def yaml
       @yaml ||= parts[1] if parts
+    end
+
+    def spdx_alt_segments
+      @spdx_alt_segments ||= begin
+        path = File.expand_path "#{spdx_id}.xml", Licensee::License.spdx_dir
+        raw_xml = File.read(path, encoding: 'utf-8')
+        text = raw_xml.match(%r{<text>(.*)</text>}m)[1]
+        text.gsub!(%r{<copyrightText>.*?</copyrightText>}m, '')
+        text.gsub!(%r{<titleText>.*?</titleText>}m, '')
+        text.gsub!(%r{<optional.*?>.*?</optional>}m, '')
+        text.scan(/<alt .*?>/m).size
+      end
     end
   end
 end

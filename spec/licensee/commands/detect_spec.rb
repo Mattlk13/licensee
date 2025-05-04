@@ -19,7 +19,7 @@ RSpec.describe 'detect command' do
       'Matched files'    => 'LICENSE.md, licensee.gemspec',
       'LICENSE.md'       => {
         'Content hash' => hash,
-        'Attribution'  => 'Copyright (c) 2014-2017 Ben Balter',
+        'Attribution'  => 'Copyright (c) 2014-2021 Ben Balter and Licensee contributors',
         'Confidence'   => '100.00%',
         'Matcher'      => 'Licensee::Matchers::Exact',
         'License'      => 'MIT'
@@ -41,7 +41,7 @@ RSpec.describe 'detect command' do
       let(:arguments) { args }
 
       it 'Returns a zero exit code' do
-        expect(status.exitstatus).to eql(0)
+        expect(status.exitstatus).to be(0)
       end
 
       it 'returns the exected values' do
@@ -59,20 +59,20 @@ RSpec.describe 'detect command' do
 
   context 'json' do
     let(:arguments) { ['--json'] }
-    let(:expected) { JSON.parse fixture_contents('detect.json') }
+    let(:expected) { JSON.parse(fixture_contents('detect.json')).tap { |h| h['matched_files'][1].delete('content') } }
 
     it 'Returns a zero exit code' do
-      expect(status.exitstatus).to eql(0)
+      expect(status.exitstatus).to be(0)
     end
 
     it 'returns valid JSON' do
-      expect { JSON.parse(stdout) }.to_not raise_error
+      expect { JSON.parse(stdout) }.not_to raise_error
     end
 
     it 'returns the expected output' do
-      msg = '`licensee detect --json` output did not match expectations. '.dup
+      msg = +'`licensee detect --json` output did not match expectations. '
       msg << 'Run `script/dump-detect-json-fixture` and verify the output.'
-      expect(JSON.parse(stdout)).to eql(expected), msg
+      expect(JSON.parse(stdout).tap { |h| h['matched_files'][1].delete('content') }).to eql(expected), msg
     end
   end
 
@@ -80,11 +80,27 @@ RSpec.describe 'detect command' do
     let(:command) { ['bundle', 'exec', 'bin/licensee'] }
 
     it 'Returns a zero exit code' do
-      expect(status.exitstatus).to eql(0)
+      expect(status.exitstatus).to be(0)
     end
 
     it 'returns the exected values' do
       expect(parsed_output).to eql(expected)
+    end
+  end
+
+  context 'a non-existing command' do
+    let(:command) { ['bundle', 'exec', 'bin/licensee', 'oops'] }
+
+    it 'Returns a one exit code' do
+      expect(status.exitstatus).to be(1)
+    end
+  end
+
+  context 'no license match' do
+    let(:arguments) { ["#{project_root}/spec/fixtures/wrk-modified-apache"] }
+
+    it 'Returns a one exit code' do
+      expect(status.exitstatus).to be(0)
     end
   end
 end

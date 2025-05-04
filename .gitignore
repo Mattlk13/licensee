@@ -4,6 +4,8 @@ Gemfile.lock
 /spec/examples.txt
 /coverage
 .env
+.ruby-version
+.bundle/config
 
 vendor/html5shiv
 vendor/jquery
@@ -15,4 +17,5 @@ vendor/eventEmitter
 vendor/eventie
 vendor/imagesloaded
 vendor/ev-emitter
+vendor/bundle
 coverage
